@@ -1,8 +1,17 @@
 #import <Foundation/Foundation.h>
+#import "AppDelegate.h"
 #include "jni.h"
 #include <stdio.h>
-extern void loadfunctions();
+
+extern void loadfunctions(void);
+
 int main(int argc, char *argv[]) {
+
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths objectAtIndex:0];
+    NSString *logFilePath = [documentsDirectory stringByAppendingPathComponent:@"output.log"];
+    freopen([logFilePath cStringUsingEncoding:NSASCIIStringEncoding], "w+", stdout);
+
     JavaVM *jvm;
     JNIEnv *env;
     JavaVMInitArgs vm_args;
@@ -20,22 +29,28 @@ int main(int argc, char *argv[]) {
     loadfunctions();
     fprintf(stderr, "Create JavaVM\n");
     jint res = JNI_CreateJavaVM(&jvm, (void **)&env, &vm_args);
-    fprintf(stderr, "Created JavaVM\n");
     if (res != JNI_OK) {
-        printf("Failed to create JVM\n");
-        return 1;
+        fprintf(stderr, "Failed to create JVM\n");
+    } else {
+        fprintf(stderr, "Created JavaVM\n");
+        jclass cls = (*env)->FindClass(env, "HelloWorld");
+        if (cls == NULL) {
+            fprintf(stderr, "Could not find HelloWorld class\n");
+        } else {
+            jmethodID mid = (*env)->GetStaticMethodID(env, cls, "main", "([Ljava/lang/String;)V");
+            if (mid == NULL) {
+                fprintf(stderr, "Could not find main method\n");
+            } else {
+                fprintf(stderr, "Run main\n");
+                (*env)->CallStaticVoidMethod(env, cls, mid, NULL);
+                fprintf(stderr, "Done JavaVM\n");
+                (*jvm)->DestroyJavaVM(jvm);
+            }
+        }
     }
-    jclass cls = (*env)->FindClass(env, "HelloWorld");
-    if (cls == NULL) {
-        printf("Could not find HelloWorld class\n");
-        return 1;
+    NSString * appDelegateClassName;
+    @autoreleasepool {
+        appDelegateClassName = NSStringFromClass([AppDelegate class]);
     }
-    jmethodID mid = (*env)->GetStaticMethodID(env, cls, "main", "([Ljava/lang/String;)V");
-    if (mid == NULL) {
-        printf("Could not find main method\n");
-        return 1;
-    }
-    (*env)->CallStaticVoidMethod(env, cls, mid, NULL);
-    (*jvm)->DestroyJavaVM(jvm);
-    return 0;
+    return UIApplicationMain(argc, argv, nil, appDelegateClassName);
 }
