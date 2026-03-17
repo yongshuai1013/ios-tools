@@ -2,6 +2,15 @@ name: Build OpenJDK Mobile
 
 on:
   workflow_call:
+    inputs:
+      mobile_repo:
+        description: 'URL of the OpenJDK Mobile repository to clone'
+        type: string
+        default: 'https://github.com/openjdk/mobile.git'
+      mobile_ref:
+        description: 'Branch, tag or commit hash of the OpenJDK Mobile repository to checkout'
+        type: string
+        default: 'master'
 
 jobs:
   build:
@@ -18,10 +27,10 @@ jobs:
           echo '/usr/local/opt/make/libexec/gnubin' >> $GITHUB_PATH
 
       - name: Checkout builder repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -37,12 +46,14 @@ jobs:
           echo "$(realpath ../support)"
 
       - name: Clone OpenJDK Mobile sources
+        env:
+          MOBILE_REPO: ${{ inputs.mobile_repo }}
+          MOBILE_REF: ${{ inputs.mobile_ref }}
         run: |
-          git clone https://github.com/openjdk/mobile.git
-          cp openjdk-ext/src/hotspot/symbol_keeper.cpp mobile/src/hotspot/os/bsd
+          git clone -- "$MOBILE_REPO" mobile
           cd mobile
-          # optionally checkout a specific branch or tag
-          git checkout master
+          git checkout "$MOBILE_REF"
+          cp ../openjdk-ext/src/hotspot/symbol_keeper.cpp src/hotspot/os/bsd
           
           bash configure \
           --with-conf-name=ios-aarch64-zero-release \
@@ -69,7 +80,7 @@ jobs:
           fi
 
       - name: Upload device artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: libjvm-device
           path: |
@@ -82,7 +93,7 @@ jobs:
             mobile/build/ios-aarch64-zero-release/jdk/include
 
       - name: Upload java.base
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: java.base-device
           path: |
